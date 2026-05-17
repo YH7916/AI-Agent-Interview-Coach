@@ -1,0 +1,12 @@
+[MAIN]
+py-version=3.11
+
+[FORMAT]
+max-line-length=100
+
+[MESSAGES CONTROL]
+disable=
+    duplicate-code
+
+[DESIGN]
+max-args=8

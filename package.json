@@ -1,0 +1,9 @@
+{
+  "type": "module",
+  "scripts": {
+    "lint:frontend": "eslint \"frontend/**/*.js\""
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0"
+  }
+}

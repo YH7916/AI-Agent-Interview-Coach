@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Agent Interview Coach</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <button
+        id="history-button"
+        class="history-button"
+        type="button"
+        aria-label="Toggle history sidebar"
+        aria-expanded="false"
+        aria-controls="history-sidebar"
+      >
+        <img src="/static/assets/panel-left.svg" alt="" aria-hidden="true">
+      </button>
+      <a class="home-button" href="/v3" aria-label="Home">
+        <img src="/static/assets/house.svg" alt="" aria-hidden="true">
+      </a>
+    </div>
+    <nav class="version-switcher" data-active="interview" aria-label="v3 Interview Agent product pages">
+      <a href="/v3" data-product-page="interview">面试</a>
+      <a href="/v3/questions" data-product-page="questions">题库</a>
+      <a href="/v3/sources" data-product-page="sources">来源</a>
+      <a href="/v3/review" data-product-page="review">复盘</a>
+    </nav>
+    <div class="topbar-tools">
+      <a
+        class="github-button"
+        href="https://github.com/YH7916/AI-Agent-Interview-Coach/"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Open GitHub repository"
+      >
+        <img src="/static/assets/github-mark.svg" alt="" aria-hidden="true">
+      </a>
+      <button
+        id="settings-button"
+        class="settings-button"
+        type="button"
+        aria-label="Runtime status and settings"
+        aria-expanded="false"
+        aria-controls="settings-sidebar"
+      >
+        <img src="/static/assets/settings-2.svg" alt="" aria-hidden="true">
+      </button>
+    </div>
+  </header>
+  <main>
+    <section id="app" aria-live="polite"></section>
+  </main>
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>
