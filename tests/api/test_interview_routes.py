@@ -484,6 +484,28 @@ class InterviewRoutesTest(unittest.TestCase):
         self.assertTrue(latest.json()["dry_run"])
         self.assertTrue(latest.json()["rewritten_questions"])
 
+    def test_source_platform_routes_fall_back_to_job_counters_for_unique_duplicates(self):
+        client = TestClient(create_app(test_mode=True))
+        runtime.interview_runtime.store.upsert_collection_job(
+            CollectionJobStatus(
+                job_id="job-quality",
+                platform_id="nowcoder",
+                state="completed",
+                message="后台采集完成",
+                snapshots=2,
+                questions=9,
+                metadata={
+                    "quality_status": "good",
+                    "quality_message": "采集有效，新增 9 / 重复 0",
+                },
+            )
+        )
+
+        latest = client.get("/interview/source-platforms/nowcoder/jobs/latest")
+
+        self.assertEqual(latest.json()["unique_questions"], 9)
+        self.assertEqual(latest.json()["duplicate_questions"], 0)
+
     def test_resume_upload_imports_source_snapshot(self):
         client = TestClient(create_app(test_mode=True))
 

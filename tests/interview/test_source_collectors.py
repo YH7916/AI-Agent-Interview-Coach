@@ -201,6 +201,110 @@ class SourceCollectorTests(unittest.TestCase):
             ),
         )
 
+    def test_collector_uses_requested_detail_page_limit(self) -> None:
+        class BatchConnector:
+            def __init__(self) -> None:
+                self.target_counts = []
+
+            def fetch(self, url, profile_dir):
+                del profile_dir
+                links = "\n".join(
+                    f'<a class="post-title" href="/discuss/{index}">AI Agent 面经 {index}</a>'
+                    for index in range(1, 11)
+                )
+                return BrowserFetchResult(
+                    url=url,
+                    final_url=url,
+                    title="牛客搜索",
+                    html=f"<html><body>{links}</body></html>",
+                    needs_login=False,
+                )
+
+            def fetch_result_pages_by_click(self, search_url, target_urls, profile_dir):
+                del search_url, profile_dir
+                self.target_counts.append(len(target_urls))
+                return [
+                    BrowserFetchResult(
+                        url=target_url,
+                        final_url=target_url,
+                        title=f"AI Agent 面经 {index}",
+                        html=f"<html><body><h1>Q{index}：Agent 记忆怎么设计？</h1></body></html>",
+                        needs_login=False,
+                    )
+                    for index, target_url in enumerate(target_urls, start=1)
+                ]
+
+        connector = BatchConnector()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            store = InterviewStore(root / "interview.sqlite3")
+            collector = SourceCollector(
+                store=store,
+                browser_connector=connector,
+                profile_dir_for_host=lambda host: root / "profiles" / host,
+                artifact_root=root / "source_pages",
+            )
+            platform = SourcePlatform(
+                id="nowcoder",
+                label="牛客",
+                host="nowcoder.com",
+                login_url="https://www.nowcoder.com",
+                icon_path="",
+                search_urls=("https://www.nowcoder.com/search?q=agent",),
+            )
+
+            result = collector.collect(platform, collection_job_id="job-1", max_detail_pages=10)
+
+        self.assertEqual(connector.target_counts, [10])
+        self.assertEqual(result["metadata"]["detail_pages"], 10)
+        self.assertEqual(result["metadata"]["max_pages"], 10)
+
+    def test_collector_exposes_unique_duplicate_counts_in_metadata(self) -> None:
+        class FakeConnector:
+            def fetch(self, url, profile_dir):
+                del profile_dir
+                if "discuss" in url:
+                    return BrowserFetchResult(
+                        url=url,
+                        final_url=url,
+                        title="详情",
+                        html='<html><body><h1>Agent Eval 怎么做？</h1></body></html>',
+                        needs_login=False,
+                    )
+                return BrowserFetchResult(
+                    url=url,
+                    final_url=url,
+                    title="牛客搜索",
+                    html='<html><body><a class="post-title" href="/discuss/eval">Agent Eval 怎么做？</a></body></html>',
+                    needs_login=False,
+                )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            store = InterviewStore(root / "interview.sqlite3")
+            collector = SourceCollector(
+                store=store,
+                browser_connector=FakeConnector(),
+                profile_dir_for_host=lambda host: root / "profiles" / host,
+                artifact_root=root / "source_pages",
+            )
+            platform = SourcePlatform(
+                id="nowcoder",
+                label="牛客",
+                host="nowcoder.com",
+                login_url="https://www.nowcoder.com",
+                icon_path="",
+                search_urls=("https://www.nowcoder.com/search?q=agent",),
+            )
+
+            first = collector.collect(platform, collection_job_id="job-1")
+            second = collector.collect(platform, collection_job_id="job-2")
+
+        self.assertEqual(first["metadata"]["unique_questions"], 1)
+        self.assertEqual(first["metadata"]["duplicate_questions"], 0)
+        self.assertEqual(second["metadata"]["unique_questions"], 0)
+        self.assertEqual(second["metadata"]["duplicate_questions"], 1)
+
     def test_detail_fetch_still_on_search_page_is_rejected_without_import(self) -> None:
         search_url = "https://www.nowcoder.com/search/all?query=RAG"
 

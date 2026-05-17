@@ -1127,6 +1127,9 @@ function collectionStartedMarkdown(platforms, failedLabels, constraints) {
       : `我开始采集：${names || "无可用平台"}。`,
     "我会复用来源页保存的登录态，并在完成后汇报访问页面、通过题目和拒收候选。",
   ];
+  if (constraints.maxPages) {
+    lines.push(`本次最多查看 ${constraints.maxPages} 篇候选详情。`);
+  }
   if (failedLabels.length) {
     lines.push(`启动失败：${failedLabels.join("、")}。`);
   }
@@ -1160,6 +1163,9 @@ function collectionReportMarkdown(reports, failedLabels, constraints) {
     }
     if (job.since_days) {
       lines.push(`时间过滤：只接受最近 ${job.since_days} 天且详情页可验证发布时间的内容。`);
+    }
+    if (job.max_pages || constraints.maxPages) {
+      lines.push(`候选上限：${job.max_pages || constraints.maxPages} 篇详情。`);
     }
     appendCollectionList(lines, "访问过的页面", job.visited_pages);
     appendCollectionList(lines, "浏览器动作", job.interaction_trace);
@@ -1215,7 +1221,16 @@ function collectionConstraintsFromCommand(message) {
   return {
     dryRun: /(预览|先看|看看|看一下|不要入库|不入库|先别入库|只看)/.test(text),
     sinceDays: recentDaysFromCommand(text),
+    maxPages: pageLimitFromCommand(text),
   };
+}
+
+function pageLimitFromCommand(text) {
+  const match = String(text || "").match(/(?:先)?(?:搜集|采集|搜索|抓取|爬取)?\s*(\d{1,2})\s*(?:篇|页|个|条)/);
+  if (!match) {
+    return null;
+  }
+  return Math.min(Math.max(Number(match[1]) || 5, 1), 20);
 }
 
 function recentDaysFromCommand(text) {

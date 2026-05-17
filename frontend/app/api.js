@@ -227,6 +227,7 @@ export async function syncInterviewSourcePlatform(platformId, options = {}) {
       body: JSON.stringify({
         dry_run: Boolean(options.dryRun),
         since_days: options.sinceDays || null,
+        max_pages: options.maxPages || null,
       }),
     },
   );

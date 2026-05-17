@@ -256,6 +256,7 @@ class InterviewRuntime:
         *,
         dry_run: bool = False,
         since_days: int | None = None,
+        max_detail_pages: int = 5,
         progress_callback: Callable[[dict[str, object], str], None] | None = None,
     ) -> dict[str, object]:
         """Import the configured background search pages for one authorized platform."""
@@ -271,6 +272,7 @@ class InterviewRuntime:
             collection_job_id=collection_job_id,
             dry_run=dry_run,
             since_days=since_days,
+            max_detail_pages=max_detail_pages,
         )
 
     def start_source_platform_sync(
@@ -280,6 +282,7 @@ class InterviewRuntime:
         *,
         dry_run: bool = False,
         since_days: int | None = None,
+        max_detail_pages: int = 5,
     ) -> CollectionJobStatus:
         """Start or reuse a background import task for one platform."""
         with self._platform_sync_lock:
@@ -290,14 +293,15 @@ class InterviewRuntime:
                     return collection_job_from_mapping(platform.id, dict(status))
                 stored = self.store.latest_collection_job(platform.id)
                 return stored or idle_collection_job(platform.id)
-            metadata: dict[str, object] = {"dry_run": dry_run}
+            max_pages = _normalize_max_detail_pages(max_detail_pages)
+            metadata: dict[str, object] = {"dry_run": dry_run, "max_pages": max_pages}
             if since_days is not None:
                 metadata["since_days"] = since_days
             job = new_collection_job(platform.id, metadata=metadata)
             self._remember_platform_sync_status_locked(job)
             thread = threading.Thread(
                 target=self._source_platform_sync_worker,
-                args=(platform, initial_delay_seconds, job.job_id, dry_run, since_days),
+                args=(platform, initial_delay_seconds, job.job_id, dry_run, since_days, max_pages),
                 daemon=True,
                 name=f"interview-source-sync-{platform.id}",
             )
@@ -533,6 +537,7 @@ class InterviewRuntime:
         collection_job_id: str,
         dry_run: bool,
         since_days: int | None,
+        max_detail_pages: int,
     ) -> None:
         if initial_delay_seconds > 0:
             time.sleep(initial_delay_seconds)
@@ -555,7 +560,7 @@ class InterviewRuntime:
                 state="running",
                 message=f"后台采集进行中，第 {attempt} 次尝试",
                 attempts=attempt,
-                metadata={"dry_run": dry_run, "since_days": since_days},
+                metadata={"dry_run": dry_run, "since_days": since_days, "max_pages": max_detail_pages},
             )
             try:
                 def report_progress(
@@ -576,6 +581,7 @@ class InterviewRuntime:
                     collection_job_id=collection_job_id,
                     dry_run=dry_run,
                     since_days=since_days,
+                    max_detail_pages=max_detail_pages,
                     progress_callback=report_progress,
                 )
             except Exception as exc:
@@ -667,6 +673,10 @@ def _coerce_int(value: object) -> int:
         return int(str(value or 0))
     except (TypeError, ValueError):
         return 0
+
+
+def _normalize_max_detail_pages(value: int | None) -> int:
+    return min(max(_coerce_int(value) or 5, 1), 20)
 
 
 def _group_review_turns(turns: list[InterviewTurn]) -> list[list[InterviewTurn]]:

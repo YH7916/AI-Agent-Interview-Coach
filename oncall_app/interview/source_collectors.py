@@ -55,11 +55,14 @@ class SourceCollector:
         *,
         dry_run: bool = False,
         since_days: int | None = None,
+        max_detail_pages: int = 5,
     ) -> dict[str, object]:
         """Run platform collection and import useful questions."""
         adapter = adapter_for_platform(platform.id)
+        page_limit = _normalize_detail_page_limit(max_detail_pages)
         totals: dict[str, object] = _empty_totals(platform)
         _set_metadata(totals, "dry_run", dry_run)
+        _set_metadata(totals, "max_pages", page_limit)
         if since_days is not None:
             _set_metadata(totals, "since_days", since_days)
             _set_metadata(totals, "time_filter", f"最近 {since_days} 天")
@@ -88,7 +91,7 @@ class SourceCollector:
             )
             _increment_metadata(totals, "source_pages", 1)
             self._report_progress(totals, f"已访问搜索页：{search_page.title or normalize_host(search_page.final_url)}")
-            result_links = adapter.extract_result_links(search_page.html, search_page.final_url, limit=5)
+            result_links = adapter.extract_result_links(search_page.html, search_page.final_url, limit=page_limit)
             if result_links:
                 detail_pages = self._fetch_detail_pages(
                     search_page.final_url or search_url,
@@ -323,6 +326,9 @@ def _empty_totals(platform: SourcePlatform) -> dict[str, object]:
             "interaction_trace": [],
             "dry_run": False,
             "since_days": None,
+            "max_pages": 5,
+            "unique_questions": 0,
+            "duplicate_questions": 0,
             "collection_mode": "browser_session",
         },
     }
@@ -424,6 +430,9 @@ def _finalize_quality(totals: dict[str, object]) -> None:
     metadata = totals.get("metadata")
     if not isinstance(metadata, dict):
         metadata = {}
+    metadata["questions"] = _int(totals.get("questions"))
+    metadata["unique_questions"] = _int(totals.get("unique_questions"))
+    metadata["duplicate_questions"] = _int(totals.get("duplicate_questions"))
     quality = build_source_quality(
         questions=_int(totals.get("questions")),
         unique_questions=_int(totals.get("unique_questions")),
@@ -499,6 +508,12 @@ def _append_metadata_item(
 
 def _int(value: object) -> int:
     return value if isinstance(value, int) else 0
+
+
+def _normalize_detail_page_limit(value: int | None) -> int:
+    if value is None:
+        return 5
+    return min(max(value, 1), 20)
 
 
 def _sha256(text: str) -> str:

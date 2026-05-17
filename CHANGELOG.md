@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.2 - 2026-05-17
+
+Patch release for observable, higher-quality interview-source collection.
+
+- Natural-language collection limits such as `先搜10篇` now flow from the chat command into the backend collector.
+- Collection reports now expose consistent unique/duplicate counts from persisted job metadata.
+- Search result filtering skips low-intent pages such as learning-route posts, resume-packaging posts, HC/job-search chatter, and unrelated broad interview posts.
+- Question ingestion rejects job-search noise like `怎么识别 agent 业务 HC？`.
+- Source collection responses now include the requested candidate-page cap for clearer progress reports.
+
 ## v0.1.1 - 2026-05-17
 
 Patch release for source collection quality and speed.

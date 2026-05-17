@@ -852,6 +852,7 @@ def interview_source_platform_sync(
         initial_delay_seconds=0,
         dry_run=bool(payload and payload.dry_run),
         since_days=payload.since_days if payload else None,
+        max_detail_pages=payload.max_pages if payload and payload.max_pages else 5,
     )
     return _source_platform_job_response(job)
 
@@ -1001,8 +1002,8 @@ def _source_platform_item(platform_id: str, row: Mapping[str, object] | None) ->
         job_updated_at=sync.updated_at if sync.job_id else "",
         snapshots=sync.snapshots,
         questions=sync.questions,
-        unique_questions=_job_metadata_int(sync, "unique_questions"),
-        duplicate_questions=_job_metadata_int(sync, "duplicate_questions"),
+        unique_questions=_job_unique_questions(sync),
+        duplicate_questions=_job_duplicate_questions(sync),
         needs_login=sync.needs_login,
         attempts=sync.attempts,
         error=sync.error,
@@ -1020,6 +1021,7 @@ def _source_platform_item(platform_id: str, row: Mapping[str, object] | None) ->
         fallback_used=_job_metadata_bool(sync, "fallback_used"),
         dry_run=_job_metadata_bool(sync, "dry_run"),
         since_days=_job_metadata_optional_int(sync, "since_days"),
+        max_pages=_job_metadata_optional_int(sync, "max_pages"),
         collection_mode=_job_metadata_str(sync, "collection_mode"),
         visited_pages=_job_metadata_str_list(sync, "visited_pages"),
         interaction_trace=_job_metadata_str_list(sync, "interaction_trace"),
@@ -1113,8 +1115,8 @@ def _source_platform_job_response(status_item: CollectionJobStatus) -> Interview
         message=status_item.message,
         snapshots=status_item.snapshots,
         questions=status_item.questions,
-        unique_questions=_job_metadata_int(status_item, "unique_questions"),
-        duplicate_questions=_job_metadata_int(status_item, "duplicate_questions"),
+        unique_questions=_job_unique_questions(status_item),
+        duplicate_questions=_job_duplicate_questions(status_item),
         needs_login=status_item.needs_login,
         error=status_item.error,
         attempts=status_item.attempts,
@@ -1133,6 +1135,7 @@ def _source_platform_job_response(status_item: CollectionJobStatus) -> Interview
         fallback_used=_job_metadata_bool(status_item, "fallback_used"),
         dry_run=_job_metadata_bool(status_item, "dry_run"),
         since_days=_job_metadata_optional_int(status_item, "since_days"),
+        max_pages=_job_metadata_optional_int(status_item, "max_pages"),
         collection_mode=_job_metadata_str(status_item, "collection_mode"),
         visited_pages=_job_metadata_str_list(status_item, "visited_pages"),
         interaction_trace=_job_metadata_str_list(status_item, "interaction_trace"),
@@ -1150,6 +1153,18 @@ def _job_metadata_str(status_item: CollectionJobStatus, key: str) -> str:
 def _job_metadata_int(status_item: CollectionJobStatus, key: str) -> int:
     """Return one UI-safe integer from persisted job metadata."""
     return _int_counter(status_item.metadata.get(key))
+
+
+def _job_unique_questions(status_item: CollectionJobStatus) -> int:
+    """Return unique count, falling back to total questions for older jobs."""
+    if "unique_questions" in status_item.metadata:
+        return _job_metadata_int(status_item, "unique_questions")
+    return max(status_item.questions - _job_duplicate_questions(status_item), 0)
+
+
+def _job_duplicate_questions(status_item: CollectionJobStatus) -> int:
+    """Return duplicate count from persisted job metadata."""
+    return _job_metadata_int(status_item, "duplicate_questions")
 
 
 def _job_metadata_optional_int(status_item: CollectionJobStatus, key: str) -> int | None:

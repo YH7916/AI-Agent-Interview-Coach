@@ -61,6 +61,12 @@ NOISE_PATTERNS = (
     r"拿到.*offer",
     r"先.*学会.*java.*后端",
     r"传统.*java.*后端.*扩展",
+    r"业务\s*hc",
+    r"识别.*hc",
+    r"包装.*简历",
+    r"怎么.*小项目",
+    r"最前沿.*讨论",
+    r"市面上.*讨论",
 )
 
 SOCIAL_PREFIXES = (

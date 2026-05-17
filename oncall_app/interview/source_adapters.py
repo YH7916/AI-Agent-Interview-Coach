@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from html.parser import HTMLParser
@@ -36,8 +37,8 @@ class BaseSourceAdapter:
         deduped: list[SourceSearchResult] = []
         seen = set()
         for title, url in links:
-            curated_titles = curate_question_texts(title)
-            if not curated_titles:
+            cleaned_title = _clean_result_title(title)
+            if not _is_high_intent_result_title(cleaned_title):
                 continue
             key = url.casefold()
             if key in seen:
@@ -45,9 +46,9 @@ class BaseSourceAdapter:
             seen.add(key)
             deduped.append(
                 SourceSearchResult(
-                    title=curated_titles[0],
+                    title=cleaned_title,
                     url=url,
-                    snippet=curated_titles[0],
+                    snippet=cleaned_title,
                     platform_id=self.platform_id,
                 )
             )
@@ -143,3 +144,55 @@ class _ResultLinkParser(HTMLParser):
             self._active_href = ""
             self._active_segments = []
             self._active_matches = False
+
+
+RESULT_TECH_MARKERS = (
+    "agent",
+    "rag",
+    "llm",
+    "mcp",
+    "prompt",
+    "memory",
+    "eval",
+    "大模型",
+    "智能体",
+    "检索",
+    "向量",
+    "召回",
+)
+
+RESULT_SOURCE_MARKERS = (
+    "面经",
+    "面试",
+    "interview",
+    "笔经",
+    "开发",
+    "实习",
+    "校招",
+    "社招",
+)
+
+RESULT_NOISE_PATTERNS = (
+    r"怎么学\s*agent",
+    r"如何快速.*offer",
+    r"拿到.*offer",
+    r"包装.*简历",
+    r"课程|老师|学习路线|学习路径",
+    r"投递|离职|空窗|双非|攒人品",
+)
+
+
+def _is_high_intent_result_title(title: str) -> bool:
+    """Return whether a search result is worth opening as an interview source."""
+    folded = title.casefold()
+    if not any(marker.casefold() in folded for marker in RESULT_TECH_MARKERS):
+        return False
+    if any(re.search(pattern, folded, flags=re.IGNORECASE) for pattern in RESULT_NOISE_PATTERNS):
+        return False
+    if any(marker.casefold() in folded for marker in RESULT_SOURCE_MARKERS):
+        return True
+    return bool(curate_question_texts(title))
+
+
+def _clean_result_title(title: str) -> str:
+    return re.sub(r"\s+", " ", title).strip(" \t\r\n")

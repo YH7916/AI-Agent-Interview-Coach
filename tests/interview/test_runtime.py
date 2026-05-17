@@ -362,12 +362,14 @@ class InterviewRuntimeTest(unittest.TestCase):
                 *,
                 dry_run=False,
                 since_days=None,
+                max_detail_pages=5,
                 progress_callback=None,
             ):
                 del platform
                 del collection_job_id
                 del dry_run
                 del since_days
+                del max_detail_pages
                 del progress_callback
                 raise RuntimeError("fetch crashed")
 

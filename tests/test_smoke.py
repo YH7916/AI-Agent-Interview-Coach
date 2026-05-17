@@ -10,7 +10,7 @@ class SmokeTest(unittest.TestCase):
 
     def test_package_has_version(self):
         """The package exposes the expected local version."""
-        self.assertEqual(__version__, "0.1.1")
+        self.assertEqual(__version__, "0.1.2")
 
 
 if __name__ == "__main__":

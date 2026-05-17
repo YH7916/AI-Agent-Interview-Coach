@@ -156,6 +156,8 @@ class FrontendStaticTest(unittest.TestCase):
         self.assertIn("accepted_questions", js)
         self.assertIn("rejected_candidates", js)
         self.assertIn("不要入库", js)
+        self.assertIn("pageLimitFromCommand", js)
+        self.assertIn("max_pages", js)
         self.assertIn("explainInterviewQuestionFromCommand", js)
         self.assertIn("GENERAL_AGENT_STREAM_ENDPOINT", js)
         self.assertIn("/interview/agent/stream", js)

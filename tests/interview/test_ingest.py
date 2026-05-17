@@ -90,6 +90,21 @@ class InterviewIngestTest(unittest.TestCase):
 
         self.assertEqual(questions, [])
 
+    def test_rejects_job_search_hc_noise_even_with_agent_marker(self):
+        snapshot = SourceSnapshot(
+            source_type="authenticated_web",
+            source_uri="https://www.nowcoder.com/search?query=agent",
+            title="牛客搜索",
+            content_text="5、怎么识别agent业务HC？",
+            content_hash="hash",
+            metadata={"platform": "牛客"},
+        )
+
+        questions, audit = extract_questions_with_audit([snapshot])
+
+        self.assertEqual(questions, [])
+        self.assertTrue(any("业务HC" in item for item in audit.rejected_candidates))
+
     def test_extraction_audit_reports_accepted_rejected_and_rewritten_candidates(self):
         snapshot = SourceSnapshot(
             source_type="authenticated_web",

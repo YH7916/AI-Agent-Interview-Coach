@@ -1,6 +1,6 @@
 [package]
 name = "ai-agent-interview-coach"
-version = "0.1.1"
+version = "0.1.2"
 description = "Local-first AI Agent mock interview coach"
 authors = ["YH7916"]
 edition = "2021"

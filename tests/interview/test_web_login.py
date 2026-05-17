@@ -11,6 +11,7 @@ from oncall_app.interview.browser_connector import (
     _browser_headless,
     _same_detail_target,
 )
+from oncall_app.interview.source_adapters import NowcoderAdapter
 from oncall_app.interview.store import InterviewStore
 from oncall_app.interview.web_login import detect_login_wall, normalize_host, profile_name_for_host
 
@@ -60,6 +61,23 @@ class InterviewWebLoginTest(unittest.TestCase):
                 "https://www.nowcoder.com/discuss/884952698703851520",
                 "https://www.nowcoder.com/discuss/884952698703851520?sourceSSR=search",
             )
+        )
+
+    def test_nowcoder_result_adapter_rejects_low_intent_search_hits(self):
+        html = """
+        <html><body>
+          <a class="post-title" href="/discuss/learn">怎么学Agent？</a>
+          <a class="post-title" href="/discuss/go">社招五年 Go 面经分享攒人品！</a>
+          <a class="post-title" href="/discuss/agent10">AI Agent面经 10（持续更新）</a>
+          <a class="post-title" href="/discuss/company">遥望科技（Agent开发）面经</a>
+        </body></html>
+        """
+
+        links = NowcoderAdapter().extract_result_links(html, "https://www.nowcoder.com/search?q=agent", limit=10)
+
+        self.assertEqual(
+            [link.title for link in links],
+            ["AI Agent面经 10（持续更新）", "遥望科技（Agent开发）面经"],
         )
         self.assertFalse(
             _same_detail_target(

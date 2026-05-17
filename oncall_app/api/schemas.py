@@ -368,6 +368,7 @@ class InterviewSourcePlatformItem(BaseModel):
     fallback_used: bool = False
     dry_run: bool = False
     since_days: int | None = None
+    max_pages: int | None = None
     collection_mode: str = ""
     visited_pages: list[str] = Field(default_factory=list)
     interaction_trace: list[str] = Field(default_factory=list)
@@ -429,6 +430,7 @@ class InterviewSourcePlatformJobResponse(BaseModel):
     fallback_used: bool = False
     dry_run: bool = False
     since_days: int | None = None
+    max_pages: int | None = None
     collection_mode: str = ""
     visited_pages: list[str] = Field(default_factory=list)
     interaction_trace: list[str] = Field(default_factory=list)
@@ -442,6 +444,7 @@ class InterviewSourcePlatformSyncRequest(BaseModel):
 
     dry_run: bool = False
     since_days: int | None = Field(default=None, ge=1, le=30)
+    max_pages: int | None = Field(default=None, ge=1, le=20)
 
 
 class InterviewWebLoginRequest(BaseModel):
