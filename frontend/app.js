@@ -1150,7 +1150,7 @@ function collectionReportMarkdown(reports, failedLabels, constraints) {
       continue;
     }
     const mode = job.dry_run ? "预览" : "入库";
-    const collectionMode = job.collection_mode === "visible_browser_click" ? "可见浏览器点击" : "浏览器采集";
+    const collectionMode = job.collection_mode === "browser_session" ? "登录态浏览器会话" : "浏览器采集";
     const status = timedOut ? "仍在后台运行" : collectionStateLabel(job.state);
     lines.push(
       `\n**${platform.label}**：${status}，模式：${mode}，执行方式：${collectionMode}，访问 ${job.source_pages || 0} 页，识别 ${job.questions || 0} 道，新增 ${job.unique_questions || 0}，重复 ${job.duplicate_questions || 0}。`,

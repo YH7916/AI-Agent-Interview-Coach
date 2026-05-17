@@ -55,6 +55,10 @@ class BaseSourceAdapter:
                 break
         return deduped
 
+    def is_detail_url(self, url: str) -> bool:
+        """Return whether a URL is a platform detail page rather than a search page."""
+        return any(marker in url for marker in self.result_url_markers)
+
     def _search_url(self, keyword: str) -> str:
         raise NotImplementedError
 

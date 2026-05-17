@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 
 @dataclass(frozen=True)
@@ -104,7 +104,7 @@ class PlaywrightBrowserConnector:
                 headless=_browser_headless(),
                 viewport={"width": 1280, "height": 900},
                 channel=_browser_channel(),
-                slow_mo=80,
+                slow_mo=_browser_slow_mo_ms(),
             )
             try:
                 page = context.pages[0] if context.pages else context.new_page()
@@ -130,14 +130,14 @@ class PlaywrightBrowserConnector:
             html=html,
             needs_login=probe.needs_login,
             login_url=final_url if probe.needs_login else "",
-                login_signals={
-                    "state": probe.state,
-                    "confidence": probe.confidence,
-                    "indicators": probe.indicators,
-                    "reason": probe.reason,
-                },
-                interaction_trace=tuple(trace),
-            )
+            login_signals={
+                "state": probe.state,
+                "confidence": probe.confidence,
+                "indicators": probe.indicators,
+                "reason": probe.reason,
+            },
+            interaction_trace=tuple(trace),
+        )
 
     def fetch_by_click(
         self,
@@ -179,29 +179,22 @@ class PlaywrightBrowserConnector:
                 headless=_browser_headless(),
                 viewport={"width": 1280, "height": 900},
                 channel=_browser_channel(),
-                slow_mo=80,
+                slow_mo=_browser_slow_mo_ms(),
             )
             try:
-                page = context.pages[0] if context.pages else context.new_page()
-                for index, target_url in enumerate(target_urls):
+                search_page = context.pages[0] if context.pages else context.new_page()
+                search_trace = [f"复用搜索结果：{search_url}"]
+                for target_url in target_urls:
                     trace = [
-                        f"{'打开' if index == 0 else '回到'}搜索页：{search_url}",
+                        *search_trace,
+                        f"同浏览器会话打开详情页：{target_url}",
                     ]
+                    page = context.new_page() if context.pages else search_page
                     try:
-                        page.goto(search_url, wait_until="domcontentloaded", timeout=25_000)
+                        page.goto(target_url, wait_until="domcontentloaded", timeout=20_000, referer=search_url)
                     except TimeoutError:
-                        trace.append("搜索页加载超时，继续检查已渲染内容")
-                    trace.extend(_browse_like_user(page))
-                    clicked = _click_link_to(page, target_url)
-                    if clicked:
-                        trace.append(f"点击详情链接：{target_url}")
-                        try:
-                            page.wait_for_load_state("domcontentloaded", timeout=20_000)
-                        except TimeoutError:
-                            trace.append("详情页加载超时，继续读取当前页面")
-                    else:
-                        trace.append(f"未在搜索页找到可点击详情链接：{target_url}")
-                    trace.extend(_browse_like_user(page, scrolls=2))
+                        trace.append("详情页加载超时，继续读取当前页面")
+                    trace.extend(_browse_like_user(page, scrolls=1))
                     html = page.content()
                     title = page.title()
                     final_url = page.url
@@ -210,26 +203,26 @@ class PlaywrightBrowserConnector:
                     except Error:
                         probe_text = html
                     probe = detect_login_wall(probe_text, final_url)
-                    if not clicked and not probe.needs_login:
-                        probe_text = "未能通过搜索页点击进入详情页"
                     results.append(
                         BrowserFetchResult(
                             url=target_url,
                             final_url=final_url,
                             title=title,
-                            html=html if clicked else "",
+                            html=html,
                             needs_login=probe.needs_login,
-                            error="" if clicked else "未找到可点击详情链接，已跳过该候选，避免把搜索页当详情页入库。",
+                            error="",
                             login_url=final_url if probe.needs_login else "",
                             login_signals={
                                 "state": probe.state,
                                 "confidence": probe.confidence,
                                 "indicators": probe.indicators,
-                                "reason": probe.reason if clicked else probe_text,
+                                "reason": probe.reason,
                             },
                             interaction_trace=tuple(trace),
                         )
                     )
+                    if page is not search_page:
+                        page.close()
             finally:
                 context.close()
         return results
@@ -313,6 +306,17 @@ def _browser_headless() -> bool:
     return raw in {"1", "true", "yes"}
 
 
+def _browser_slow_mo_ms() -> int:
+    """Optional debugging delay. Production collection should not slow every action."""
+    raw = os.environ.get("INTERVIEW_BROWSER_SLOW_MO_MS", "").strip()
+    if not raw:
+        return 0
+    try:
+        return max(int(raw), 0)
+    except ValueError:
+        return 0
+
+
 def _browser_channel() -> str | None:
     """Return optional Chrome/Edge channel configuration for a more user-like browser."""
     channel = os.environ.get("INTERVIEW_BROWSER_CHANNEL", "").strip()
@@ -342,10 +346,10 @@ def _host_from_profile_dir(profile_dir: str | Path) -> str:
     return name
 
 
-def _browse_like_user(page, scrolls: int = 3) -> list[str]:
+def _browse_like_user(page, scrolls: int = 2) -> list[str]:
     """Let dynamic pages render and expose content through small user-like actions."""
     trace = ["等待页面渲染"]
-    page.wait_for_timeout(900)
+    page.wait_for_timeout(450)
     try:
         page.mouse.move(420, 360)
         trace.append("移动鼠标")
@@ -355,7 +359,7 @@ def _browse_like_user(page, scrolls: int = 3) -> list[str]:
         try:
             page.mouse.wheel(0, 620)
             trace.append(f"滚动页面 {index + 1}/{scrolls}")
-            page.wait_for_timeout(550)
+            page.wait_for_timeout(250)
         except Exception:  # pragma: no cover - browser failures are provider-specific.
             break
     return trace
@@ -363,7 +367,6 @@ def _browse_like_user(page, scrolls: int = 3) -> list[str]:
 
 def _click_link_to(page, target_url: str) -> bool:
     """Click the first anchor whose resolved href matches the target URL."""
-    target = target_url.rstrip("/")
     anchors = page.locator("a")
     try:
         count = min(anchors.count(), 80)
@@ -376,7 +379,7 @@ def _click_link_to(page, target_url: str) -> bool:
         except Exception:  # pragma: no cover - browser failures are provider-specific.
             continue
         resolved = urljoin(page.url, href or "").rstrip("/")
-        if resolved != target:
+        if not _same_detail_target(resolved, target_url):
             continue
         try:
             anchor.scroll_into_view_if_needed(timeout=2_000)
@@ -386,3 +389,19 @@ def _click_link_to(page, target_url: str) -> bool:
         except Exception:  # pragma: no cover - browser failures are provider-specific.
             return False
     return False
+
+
+def _same_detail_target(candidate_url: str, target_url: str) -> bool:
+    """Match a detail link by origin and path, ignoring tracking query parameters."""
+    try:
+        candidate = urlparse(candidate_url)
+        target = urlparse(target_url)
+    except ValueError:
+        return candidate_url.rstrip("/") == target_url.rstrip("/")
+    candidate_host = (candidate.hostname or "").lower()
+    target_host = (target.hostname or "").lower()
+    if candidate_host and target_host and candidate_host != target_host:
+        return False
+    candidate_path = candidate.path.rstrip("/")
+    target_path = target.path.rstrip("/")
+    return bool(candidate_path and candidate_path == target_path)

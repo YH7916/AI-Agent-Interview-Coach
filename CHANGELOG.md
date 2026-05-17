@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.1.1 - 2026-05-17
+
+Patch release for source collection quality and speed.
+
+- Default source search now uses the higher-intent query `agent 面经` instead of three broad interview-topic searches.
+- Source collection now reuses an authenticated browser session for detail pages and removes per-action slow motion by default.
+- Detail pages are validated before import so search-result aggregate text cannot pollute the question bank.
+- Collection reports now describe the execution mode as a login-state browser session.
+
 ## v0.1.0 - 2026-05-17
 
 Initial standalone product release of AI Agent Interview Coach.

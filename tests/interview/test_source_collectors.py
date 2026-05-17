@@ -201,6 +201,76 @@ class SourceCollectorTests(unittest.TestCase):
             ),
         )
 
+    def test_detail_fetch_still_on_search_page_is_rejected_without_import(self) -> None:
+        search_url = "https://www.nowcoder.com/search/all?query=RAG"
+
+        class StuckSearchConnector:
+            def fetch(self, url, profile_dir):
+                del profile_dir
+                return BrowserFetchResult(
+                    url=url,
+                    final_url=url,
+                    title="RAG 面试-搜索结果-牛客网",
+                    html="""
+                    <html><body>
+                      <a class="post-title" href="/discuss/881821948399935488?sourceSSR=search">
+                        RAG 面试经验合集
+                      </a>
+                    </body></html>
+                    """,
+                    needs_login=False,
+                )
+
+            def fetch_result_pages_by_click(self, search_url_arg, target_urls, profile_dir):
+                del search_url_arg, profile_dir
+                return [
+                    BrowserFetchResult(
+                        url=target_urls[0],
+                        final_url=search_url,
+                        title="RAG 面试-搜索结果-牛客网",
+                        html="""
+                        <html><body>
+                          自我介绍 RAG 的流程 RAG 的优势 怎么识别大模型的幻觉？
+                          减少大模型幻觉的措施有哪些？
+                          用了 RAG 以后，大模型就一定不出幻觉了吗？怎么排查？
+                        </body></html>
+                        """,
+                        needs_login=False,
+                        interaction_trace=("点击详情链接：/discuss/881821948399935488",),
+                    )
+                ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            store = InterviewStore(root / "interview.sqlite3")
+            collector = SourceCollector(
+                store=store,
+                browser_connector=StuckSearchConnector(),
+                profile_dir_for_host=lambda host: root / "profiles" / host,
+                artifact_root=root / "source_pages",
+            )
+            platform = SourcePlatform(
+                id="nowcoder",
+                label="牛客",
+                host="nowcoder.com",
+                login_url="https://www.nowcoder.com",
+                icon_path="",
+                search_urls=(search_url,),
+            )
+
+            result = collector.collect(platform, collection_job_id="job-1")
+            stored_questions = store.list_questions()
+
+        self.assertEqual(result["snapshots"], 0)
+        self.assertEqual(result["questions"], 0)
+        self.assertEqual(result["unique_questions"], 0)
+        self.assertEqual(result["metadata"]["source_pages"], 1)
+        self.assertEqual(result["metadata"]["detail_pages"], 0)
+        self.assertEqual(result["metadata"]["accepted_questions"], [])
+        self.assertEqual(stored_questions, [])
+        self.assertTrue(any("没有进入详情页" in item for item in result["metadata"]["rejected_candidates"]))
+        self.assertFalse(any("详情页" in item for item in result["metadata"]["visited_pages"]))
+
     def test_duplicate_questions_are_counted(self) -> None:
         class FakeConnector:
             def fetch(self, url, profile_dir):

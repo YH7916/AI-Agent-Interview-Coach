@@ -4,9 +4,7 @@ from dataclasses import dataclass
 from urllib.parse import quote_plus
 
 SEARCH_KEYWORDS = (
-    "AI Agent 面试",
-    "RAG 面试",
-    "Agent Eval 面试",
+    "agent 面经",
 )
 
 

@@ -6,7 +6,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from oncall_app.interview.browser_connector import DisabledBrowserConnector, _browser_headless
+from oncall_app.interview.browser_connector import (
+    DisabledBrowserConnector,
+    _browser_headless,
+    _same_detail_target,
+)
 from oncall_app.interview.store import InterviewStore
 from oncall_app.interview.web_login import detect_login_wall, normalize_host, profile_name_for_host
 
@@ -49,6 +53,20 @@ class InterviewWebLoginTest(unittest.TestCase):
 
         self.assertTrue(result.needs_login)
         self.assertIn("INTERVIEW_ENABLE_BROWSER", result.error)
+
+    def test_browser_click_target_matches_detail_path_without_query_noise(self):
+        self.assertTrue(
+            _same_detail_target(
+                "https://www.nowcoder.com/discuss/884952698703851520",
+                "https://www.nowcoder.com/discuss/884952698703851520?sourceSSR=search",
+            )
+        )
+        self.assertFalse(
+            _same_detail_target(
+                "https://www.nowcoder.com/search/all?query=agent",
+                "https://www.nowcoder.com/discuss/884952698703851520?sourceSSR=search",
+            )
+        )
 
 
 if __name__ == "__main__":

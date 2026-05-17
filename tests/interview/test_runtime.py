@@ -8,7 +8,7 @@ from unittest.mock import patch
 from oncall_app.interview.collection_jobs import CollectionJobStatus
 from oncall_app.interview.models import InterviewQuestion
 from oncall_app.interview.runtime import InterviewRuntime
-from oncall_app.interview.source_platforms import SourcePlatform
+from oncall_app.interview.source_platforms import SOURCE_PLATFORMS, SourcePlatform
 
 
 class InterviewRuntimeTest(unittest.TestCase):
@@ -213,6 +213,12 @@ class InterviewRuntimeTest(unittest.TestCase):
             self.assertEqual(result["questions"], 1)
             self.assertEqual(result["metadata"]["extractor"], "nowcoder")
             self.assertEqual(result["metadata"]["candidate_blocks"], 1)
+
+    def test_default_source_platforms_search_agent_interview_experience_once(self):
+        for platform in SOURCE_PLATFORMS:
+            self.assertEqual(len(platform.search_urls), 1)
+            self.assertIn("agent", platform.search_urls[0].lower())
+            self.assertIn("%E9%9D%A2%E7%BB%8F", platform.search_urls[0])
 
     def test_source_platform_sync_runs_as_background_job(self):
         class FakeConnector:

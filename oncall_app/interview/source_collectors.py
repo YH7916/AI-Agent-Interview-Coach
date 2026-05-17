@@ -63,7 +63,7 @@ class SourceCollector:
         if since_days is not None:
             _set_metadata(totals, "since_days", since_days)
             _set_metadata(totals, "time_filter", f"最近 {since_days} 天")
-        _set_metadata(totals, "collection_mode", "visible_browser_click")
+        _set_metadata(totals, "collection_mode", "browser_session")
         for search_url in platform.search_urls:
             search_page = self._fetch_page(search_url, platform.host)
             if search_page.needs_login:
@@ -90,13 +90,21 @@ class SourceCollector:
             self._report_progress(totals, f"已访问搜索页：{search_page.title or normalize_host(search_page.final_url)}")
             result_links = adapter.extract_result_links(search_page.html, search_page.final_url, limit=5)
             if result_links:
-                _increment_metadata(totals, "detail_pages", len(result_links))
                 detail_pages = self._fetch_detail_pages(
                     search_page.final_url or search_url,
                     [result_link.url for result_link in result_links],
                     platform.host,
                 )
                 for result_link, detail_page in zip(result_links, detail_pages, strict=True):
+                    if not _is_valid_detail_page(adapter, detail_page):
+                        _reject_invalid_detail_page(
+                            totals,
+                            detail_page,
+                            request_url=result_link.url,
+                        )
+                        self._report_progress(totals, f"跳过未进入详情页：{result_link.title}")
+                        continue
+                    _increment_metadata(totals, "detail_pages", 1)
                     self._import_page(
                         totals,
                         detail_page,
@@ -315,7 +323,7 @@ def _empty_totals(platform: SourcePlatform) -> dict[str, object]:
             "interaction_trace": [],
             "dry_run": False,
             "since_days": None,
-            "collection_mode": "visible_browser_click",
+            "collection_mode": "browser_session",
         },
     }
 
@@ -349,6 +357,33 @@ def _merge_search_page_audit(
     )
     _, audit = extract_questions_with_audit([snapshot])
     _merge_audit_metadata(totals, audit)
+
+
+def _is_valid_detail_page(adapter: object, fetched: BrowserFetchResult) -> bool:
+    """Reject search/list pages that slipped through a detail fetch."""
+    if fetched.needs_login or fetched.error and not fetched.html.strip():
+        return True
+    detail_checker = getattr(adapter, "is_detail_url", None)
+    markers = getattr(adapter, "result_url_markers", ())
+    if not callable(detail_checker) or not markers:
+        return True
+    return bool(detail_checker(fetched.final_url))
+
+
+def _reject_invalid_detail_page(
+    totals: dict[str, object],
+    fetched: BrowserFetchResult,
+    *,
+    request_url: str,
+) -> None:
+    final_url = fetched.final_url or "空页面"
+    _append_metadata_item(
+        totals,
+        "rejected_candidates",
+        f"{request_url}（浏览器没有进入详情页，最终停留在 {final_url}，已跳过，避免搜索页污染题库）",
+    )
+    _append_metadata_items(totals, "interaction_trace", list(fetched.interaction_trace), limit=20)
+    _increment_metadata(totals, "rejected_blocks", 1)
 
 
 def _merge_extraction_metadata(totals: dict[str, object], raw_metadata: dict[str, object]) -> None:
