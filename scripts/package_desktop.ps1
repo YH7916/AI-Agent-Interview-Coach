@@ -111,6 +111,7 @@ if (-not (Test-Path $sourceExe)) {
 Copy-Item -Force $sourceExe $targetExe
 
 if (-not $SkipTauriBuild) {
+    Invoke-Step "desktop dependencies" { npm --prefix desktop ci }
     Use-VisualStudioBuildTools
     Invoke-Step "tauri desktop build" { npm --prefix desktop run build }
 }
